@@ -1,0 +1,284 @@
+You are an expert Python, Streamlit, and data-science engineer.
+
+I want you to build a COMPLETE, PRODUCTION-QUALITY Streamlit web app for an
+"AI-Powered LMS Student Behavior Analytics & Segmentation Dashboard – Phase 1 (LMS Only)".
+
+The app will be deployed on Replit and must run with `streamlit run app.py`.
+
+--------------------------------------------------
+HIGH-LEVEL GOAL
+--------------------------------------------------
+The app should:
+
+1. Allow the user to upload a CLEANED LMS dataset (like lms_clean.csv).
+2. Perform rich EDA and advanced visual analytics on the dataset.
+3. Use an UNSUPERVISED learning pipeline to segment students into learner types.
+4. Support MULTIPLE clustering models, with:
+   - A way to select which models to train.
+   - A "Train All Models" option.
+5. FIRST determine a good number of clusters using Elbow and related methods BEFORE training.
+6. Then allow the user to choose which clustering models to train with that cluster count.
+7. Provide advanced 2D and 3D visualizations and dashboards for understanding clusters.
+8. Allow predicting a cluster and learner type for a NEW student.
+9. Provide CSV export for clustered data and possibly model metrics.
+10. Use a very CLEAN, modern, professional UI with light/dark theme toggle, good alignment, and no emojis in the UI.
+
+--------------------------------------------------
+DATASET ASSUMPTION
+--------------------------------------------------
+Assume the uploaded CSV has columns like:
+
+- id_student
+- final_result   (e.g., Pass, Fail, Withdrawn, Distinction)
+- total_clicks
+- active_days
+- avg_daily_clicks
+- quizzes_attempted
+- avg_quiz_score
+- date_registration
+- date_unregistration
+- unregistered_flag
+
+For modeling, use these 5 numeric behavioral features:
+
+- total_clicks
+- active_days
+- avg_daily_clicks
+- quizzes_attempted
+- avg_quiz_score
+
+Do NOT use final_result as an input to the clustering model. It should only be used later for analysis and interpretation of clusters.
+
+--------------------------------------------------
+MODELS & METHODS
+--------------------------------------------------
+The app must support MULTIPLE clustering models:
+
+1. KMeans with:
+   - StandardScaler for feature scaling.
+   - Elbow Method (k from 2 to 10) to determine a reasonable range of clusters.
+2. Gaussian Mixture Model (GMM).
+3. Agglomerative Clustering.
+
+Optional (only if it keeps code clean and not overly complex):
+- MiniBatchKMeans or another clustering algorithm.
+
+Important:
+- The user must first run the “Determine Number of Clusters” step (Elbow and any other cluster-count analysis) BEFORE training any model.
+- After that, they should be able to:
+  - Choose a specific k (e.g., default suggested by Elbow).
+  - Then select:
+    - Which models to train (checkboxes for KMeans, GMM, Agglomerative).
+    - Or click a “Train All Models” button to train all available models with the chosen k.
+
+--------------------------------------------------
+MODEL EVALUATION & RANKING
+--------------------------------------------------
+For each trained clustering model, compute and display:
+
+- Silhouette Score
+- Davies–Bouldin Index
+- Calinski–Harabasz Score
+
+Show these metrics in a table and RANK models by performance.
+
+For ranking:
+- Higher Silhouette Score is better.
+- Lower Davies–Bouldin Index is better.
+- Higher Calinski–Harabasz Score is better.
+
+You can compute a composite ranking or simply sort by Silhouette and show others as reference.
+
+The user should be able to select the "Active Model" from a dropdown (e.g., "KMeans", "GMM", "Agglomerative").
+This Active Model will be used for:
+- Cluster interpretation.
+- New student prediction.
+- Dashboard analytics.
+
+--------------------------------------------------
+DIMENSIONALITY REDUCTION & VISUALIZATIONS
+--------------------------------------------------
+Use PCA for dimensionality reduction. At least:
+
+- 2D PCA for scatter plots.
+- 3D PCA for interactive visualization (use Plotly 3D scatter).
+
+The app should include advanced visualizations to make clusters easy to understand:
+
+- 2D PCA scatter plot colored by cluster (for active model).
+- 3D PCA scatter plot colored by cluster (for active model).
+- Optionally, a toggle to color by final_result for comparison.
+- Parallel coordinates plot to show feature values across clusters.
+- Per-cluster feature distribution plots:
+  - Violin plots or boxplots showing distribution of each key feature per cluster.
+- Correlation heatmap for the behavior features.
+- Distribution plots of each numeric feature (histogram + density).
+
+Use Plotly where interactive visualization adds clarity (especially 3D PCA, parallel coordinates, cluster-wise bars, etc.).
+
+--------------------------------------------------
+PIPELINE LOGIC (IMPORTANT)
+--------------------------------------------------
+The logic flow should be:
+
+1. Upload dataset.
+2. Validate dataset (required columns present).
+3. EDA page (summary, distributions, correlations, etc.).
+4. CLUSTER COUNT SELECTION PAGE:
+   - Extract the 5 numeric features.
+   - Apply StandardScaler.
+   - Run KMeans for k from 2 to 10.
+   - Plot Elbow curve (k vs inertia).
+   - Optionally compute average Silhouette for different k values and plot that as well.
+   - Suggest a reasonable default k (e.g., using the elbow point or a selected heuristic).
+   - Allow user to manually choose k (e.g., via slider or selectbox).
+5. MODEL TRAINING PAGE:
+   - Provide UI to:
+     - Select which models to train (checkboxes: KMeans, GMM, Agglomerative).
+     - Or click a “Train All Models” button that trains all selected/available models with chosen k.
+   - For each trained model:
+     - Store model in session_state.
+     - Compute and store clustering metrics.
+     - Generate cluster labels and attach to a clustered dataframe.
+   - Show a table of model performance (Silhouette, DB, CH scores).
+   - Let the user choose the active model from a dropdown (for interpretation and predictions).
+6. CLUSTER INTERPRETATION PAGE:
+   - Using the active model’s cluster labels:
+     - Show:
+       - Mean feature values per cluster.
+       - Crosstab of cluster vs final_result.
+   - Assign human-readable learner type labels for each cluster ID based on profiles:
+     Examples (you can adjust based on stats):
+       - "Top Performer"
+       - "At-Risk Learner"
+       - "Consistent Learner"
+       - "Casual Learner"
+   - Display:
+     - Cluster profile cards: each card includes:
+       - Cluster ID
+       - Learner type label
+       - Short behavior description (e.g., "High clicks, many quizzes, high scores").
+       - Typical final_result distribution (e.g., mostly Pass / Distinction).
+       - Recommended intervention (e.g., "Provide advanced content" or "Offer mentoring and support").
+   - Add high-dimensional visualizations here:
+     - Parallel coordinates to compare clusters.
+     - PCA 2D & 3D cluster representations.
+     - Violin/boxplots of each feature per cluster.
+
+7. NEW STUDENT PREDICTION PAGE:
+   - Require that at least one model is trained and an active model is selected.
+   - Provide numeric inputs for:
+     - total_clicks
+     - active_days
+     - avg_daily_clicks
+     - quizzes_attempted
+     - avg_quiz_score
+   - On submission:
+     - Create a 2D array with these values.
+     - Use the trained StandardScaler to transform the input.
+     - Use the ACTIVE model to predict a cluster.
+     - Map cluster to learner type label.
+     - Show:
+       - Cluster ID.
+       - Learner type.
+       - Brief explanation (based on cluster profile).
+       - Recommended action/intervention.
+
+8. DASHBOARD & EXPORTS PAGE:
+   - Show dashboards using the active model’s clustered dataframe:
+     - Cluster size distribution (bar chart).
+     - Cluster vs final_result (stacked bar or grouped bar).
+     - Average score, clicks, etc. per cluster (bar charts).
+   - Provide an option to:
+     - Download the clustered dataset as CSV.
+     - Optionally download model metrics as CSV.
+
+9. ABOUT / DOCUMENTATION PAGE:
+   - Markdown explanation of:
+     - Problem statement (LMS behavioral analytics).
+     - Dataset description.
+     - ML approach:
+       - StandardScaler
+       - PCA
+       - KMeans / GMM / Agglomerative
+       - Elbow method
+       - Clustering metrics (Silhouette, DB, CH).
+     - What Phase 1 covers (LMS only) and a note about possible Phase 2 (live engagement).
+   - Keep this section neat and readable.
+
+--------------------------------------------------
+UI / UX REQUIREMENTS
+--------------------------------------------------
+Design requirements:
+
+- Use Streamlit, but aim for a professional, dashboard-style layout.
+- Use a sidebar for navigation between sections/pages.
+- Do NOT use emojis in labels, headers, or buttons in the app UI.
+- Instead of emojis, use:
+  - Clear text headings.
+  - Good spacing and typography.
+  - Optionally load one or two relevant header images (e.g., an education/analytics banner) using `st.image()` on the Home page.
+- Theme:
+  - Implement support for both light and dark mode if possible.
+  - Or at least provide a clean configuration that looks good in both modes.
+  - Use a teal/blue color palette for charts and accents (education + analytics feel).
+- Layout:
+  - Use `st.columns` and sectioning to keep things tidy.
+  - Use "card"-style panels (e.g., with `st.container()` and headers) for cluster profiles and metrics.
+  - Ensure good alignment and spacing — it should look like a modern analytics dashboard, not cluttered.
+
+--------------------------------------------------
+STATE & ROBUSTNESS
+--------------------------------------------------
+- Use `st.session_state` to store:
+  - Uploaded dataframe.
+  - Scaler.
+  - Each trained model (KMeans, GMM, Agglomerative).
+  - The clustered dataframe (with cluster labels).
+  - Selected cluster count (k).
+  - Selected active model name.
+  - Model metrics.
+- Robustness:
+  - If no dataset is uploaded, show a friendly warning instead of crashing on EDA or training pages.
+  - If models are not trained yet, show helpful messages on pages that depend on models.
+  - Validate that required columns are present in uploaded CSV; if not, show a clear error.
+
+--------------------------------------------------
+FILES TO CREATE
+--------------------------------------------------
+You must create at least:
+
+- `app.py` — main Streamlit app with all pages and logic.
+- `requirements.txt` — containing all dependencies.
+- `README.md` — with:
+  - Overview of the app.
+  - Instructions to run: `streamlit run app.py`.
+  - Brief explanation of features and pages.
+
+Dependencies to include (add more as needed):
+- streamlit
+- pandas
+- numpy
+- scikit-learn
+- matplotlib
+- seaborn
+- plotly
+- joblib
+
+--------------------------------------------------
+FINAL EXPECTATION
+--------------------------------------------------
+When I run `streamlit run app.py`, I should be able to:
+
+- Upload a cleaned LMS CSV.
+- Inspect EDA with clear, high-quality charts.
+- Determine a cluster count using Elbow (and potentially silhouette vs k).
+- Select which clustering models to train, or train all.
+- See metrics for all models and select the active one.
+- View rich 2D/3D and high-dimensional visualizations of clusters.
+- Read human-friendly cluster descriptions and interventions.
+- Enter a new student’s behavior metrics and get their cluster and learner type.
+- View analytics dashboards for cluster distributions and outcomes.
+- Download the clustered dataset.
+
+Please build this full solution now, with clean, well-structured code and a very professional UI/UX.
