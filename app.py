@@ -869,16 +869,30 @@ def page_model_training():
         
         st.session_state.active_model = active_model
         
-        labels = st.session_state.cluster_labels[active_model]
-        clustered_df = df.copy()
-        clustered_df['Cluster'] = labels
-        st.session_state.clustered_df = clustered_df
-        
-        cluster_stats = clustered_df.groupby('Cluster')[FEATURE_COLUMNS].mean()
-        cluster_stats_normalized = (cluster_stats - cluster_stats.min()) / (cluster_stats.max() - cluster_stats.min())
-        st.session_state.learner_types = assign_learner_types(cluster_stats_normalized)
-        
-        st.success(f"Active model set to: {active_model}")
+        try:
+            labels = st.session_state.cluster_labels[active_model]
+            clustered_df = df.copy()
+            clustered_df['Cluster'] = labels
+            st.session_state.clustered_df = clustered_df
+            
+            cluster_stats = clustered_df.groupby('Cluster')[FEATURE_COLUMNS].mean()
+            
+            if cluster_stats.empty:
+                st.session_state.learner_types = {0: "Group 1"}
+            else:
+                cluster_min = cluster_stats.min()
+                cluster_max = cluster_stats.max()
+                
+                range_vals = cluster_max - cluster_min
+                range_vals = range_vals.replace(0, 1)
+                
+                cluster_stats_normalized = (cluster_stats - cluster_min) / range_vals
+                st.session_state.learner_types = assign_learner_types(cluster_stats_normalized)
+            
+            st.success(f"Active model set to: {active_model}")
+        except Exception as e:
+            st.error(f"Error setting active model: {str(e)}")
+            st.session_state.learner_types = {}
 
 def page_cluster_interpretation():
     st.markdown('<h1 class="main-header">Cluster Interpretation</h1>', unsafe_allow_html=True)
