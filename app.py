@@ -764,42 +764,64 @@ def page_model_training():
         status_text = st.empty()
         
         for i, (name, model, model_type) in enumerate(models_to_train):
-            status_text.text(f"Training {name}...")
-            
-            if model_type == 'gmm':
-                model.fit(X_scaled)
-                labels = model.predict(X_scaled)
-            else:
-                labels = model.fit_predict(X_scaled)
-            
-            unique_labels = set(labels)
-            if -1 in unique_labels:
-                n_clusters = len(unique_labels) - 1
-                noise_count = list(labels).count(-1)
-                st.info(f"{name}: Found {n_clusters} clusters with {noise_count} noise points")
-            
-            valid_mask = labels != -1
-            if valid_mask.sum() > 1 and len(set(labels[valid_mask])) > 1:
-                sil_score = silhouette_score(X_scaled[valid_mask], labels[valid_mask])
-                db_score = davies_bouldin_score(X_scaled[valid_mask], labels[valid_mask])
-                ch_score = calinski_harabasz_score(X_scaled[valid_mask], labels[valid_mask])
-            else:
+            try:
+                status_text.text(f"Training {name}...")
+                
+                if model_type == 'gmm':
+                    model.fit(X_scaled)
+                    labels = model.predict(X_scaled)
+                else:
+                    labels = model.fit_predict(X_scaled)
+                
+                labels = np.asarray(labels, dtype=int)
+                
+                unique_labels = set(labels)
+                if -1 in unique_labels:
+                    n_clusters = len(unique_labels) - 1
+                    noise_count = int(list(labels).count(-1))
+                    st.info(f"{name}: Found {n_clusters} clusters with {noise_count} noise points")
+                
+                valid_mask = labels != -1
+                valid_labels = labels[valid_mask]
+                X_valid = X_scaled[valid_mask]
+                
                 sil_score = 0.0
                 db_score = float('inf')
                 ch_score = 0.0
-            
-            centroids = compute_cluster_centroids(X_scaled, labels)
-            
-            st.session_state.models[name] = model
-            st.session_state.cluster_labels[name] = labels
-            st.session_state.cluster_centroids[name] = centroids
-            st.session_state.metrics[name] = {
-                'Silhouette Score': sil_score,
-                'Davies-Bouldin Index': db_score,
-                'Calinski-Harabasz Score': ch_score
-            }
-            
-            progress_bar.progress((i + 1) / len(models_to_train))
+                
+                if X_valid.shape[0] > 1 and len(np.unique(valid_labels)) > 1:
+                    try:
+                        sil_score = float(silhouette_score(X_valid, valid_labels))
+                    except:
+                        sil_score = 0.0
+                    try:
+                        db_score = float(davies_bouldin_score(X_valid, valid_labels))
+                    except:
+                        db_score = float('inf')
+                    try:
+                        ch_score = float(calinski_harabasz_score(X_valid, valid_labels))
+                    except:
+                        ch_score = 0.0
+                
+                centroids = compute_cluster_centroids(X_scaled, labels)
+                if not centroids:
+                    centroids = {0: X_scaled.mean(axis=0)}
+                
+                st.session_state.models[name] = model
+                st.session_state.cluster_labels[name] = labels
+                st.session_state.cluster_centroids[name] = centroids
+                st.session_state.metrics[name] = {
+                    'Silhouette Score': sil_score,
+                    'Davies-Bouldin Index': db_score,
+                    'Calinski-Harabasz Score': ch_score
+                }
+                
+                progress_bar.progress((i + 1) / len(models_to_train))
+                
+            except Exception as e:
+                st.error(f"Error training {name}: {str(e)}")
+                status_text.text(f"Error training {name}")
+                continue
         
         status_text.text("Training complete!")
         
