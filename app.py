@@ -62,8 +62,11 @@ def compute_cluster_centroids(X_scaled, labels):
     unique_labels = np.unique(labels)
     centroids = {}
     for label in unique_labels:
+        if label == -1:
+            continue
         mask = labels == label
-        centroids[label] = X_scaled[mask].mean(axis=0)
+        if mask.sum() > 0:
+            centroids[label] = X_scaled[mask].mean(axis=0)
     return centroids
 
 def predict_nearest_centroid(input_scaled, centroids):
