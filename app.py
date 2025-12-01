@@ -7,11 +7,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN, SpectralClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+import hdbscan
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 import io
+import base64
 
 st.set_page_config(
     page_title="LMS Student Analytics Dashboard",
@@ -283,10 +290,10 @@ def page_upload():
                 
                 st.markdown("### Column Information")
                 col_info = pd.DataFrame({
-                    'Column': df.columns,
-                    'Data Type': df.dtypes.values,
-                    'Non-Null Count': df.count().values,
-                    'Null Count': df.isnull().sum().values
+                    'Column': df.columns.tolist(),
+                    'Data Type': [str(dt) for dt in df.dtypes.values],
+                    'Non-Null Count': df.count().values.tolist(),
+                    'Null Count': df.isnull().sum().values.tolist()
                 })
                 st.dataframe(col_info, use_container_width=True)
             else:
@@ -408,6 +415,31 @@ def page_eda():
     )
     st.plotly_chart(fig_box, use_container_width=True)
 
+def compute_gap_statistic(X, k_range, n_refs=10):
+    gaps = []
+    gap_errors = []
+    
+    for k in k_range:
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+        kmeans.fit(X)
+        
+        log_wk = np.log(kmeans.inertia_)
+        
+        ref_inertias = []
+        for _ in range(n_refs):
+            random_ref = np.random.uniform(X.min(axis=0), X.max(axis=0), X.shape)
+            kmeans_ref = KMeans(n_clusters=k, random_state=42, n_init=10)
+            kmeans_ref.fit(random_ref)
+            ref_inertias.append(np.log(kmeans_ref.inertia_))
+        
+        gap = np.mean(ref_inertias) - log_wk
+        gap_error = np.std(ref_inertias) * np.sqrt(1 + 1/n_refs)
+        
+        gaps.append(gap)
+        gap_errors.append(gap_error)
+    
+    return gaps, gap_errors
+
 def page_cluster_count():
     st.markdown('<h1 class="main-header">Cluster Count Selection</h1>', unsafe_allow_html=True)
     
@@ -419,10 +451,13 @@ def page_cluster_count():
     
     st.markdown("""
     <div class="info-box">
-    Use the Elbow Method and Silhouette Analysis to determine the optimal number of clusters 
-    for your data. The elbow point indicates where adding more clusters provides diminishing returns.
+    Use the Elbow Method, Silhouette Analysis, and Gap Statistic to determine the optimal number of clusters 
+    for your data. Multiple metrics provide more robust cluster count recommendations.
     </div>
     """, unsafe_allow_html=True)
+    
+    include_gap = st.checkbox("Include Gap Statistic Analysis (slower but more robust)", value=False,
+                              help="Gap statistic compares within-cluster dispersion to a null reference distribution")
     
     if st.button("Run Cluster Analysis", type="primary"):
         with st.spinner("Analyzing optimal cluster count..."):
@@ -451,7 +486,13 @@ def page_cluster_count():
                 inertias.append(kmeans.inertia_)
                 silhouettes.append(silhouette_score(X_scaled, kmeans.labels_))
             
-            col1, col2 = st.columns(2)
+            if include_gap:
+                gaps, gap_errors = compute_gap_statistic(X_scaled, k_range, n_refs=5)
+            
+            if include_gap:
+                col1, col2, col3 = st.columns(3)
+            else:
+                col1, col2 = st.columns(2)
             
             with col1:
                 fig_elbow = go.Figure()
@@ -487,8 +528,49 @@ def page_cluster_count():
                 )
                 st.plotly_chart(fig_sil, use_container_width=True)
             
-            optimal_k = silhouettes.index(max(silhouettes)) + 2
-            st.session_state.selected_k = optimal_k
+            if include_gap:
+                with col3:
+                    fig_gap = go.Figure()
+                    fig_gap.add_trace(go.Scatter(
+                        x=list(k_range), y=gaps,
+                        mode='lines+markers',
+                        name='Gap Statistic',
+                        line=dict(color='#FF6B6B', width=3),
+                        marker=dict(size=10),
+                        error_y=dict(type='data', array=gap_errors, visible=True)
+                    ))
+                    fig_gap.update_layout(
+                        title="Gap Statistic vs K",
+                        xaxis_title="Number of Clusters (K)",
+                        yaxis_title="Gap Statistic",
+                        height=400
+                    )
+                    st.plotly_chart(fig_gap, use_container_width=True)
+            
+            optimal_k_silhouette = silhouettes.index(max(silhouettes)) + 2
+            
+            if include_gap:
+                optimal_k_gap = 2
+                for i in range(len(gaps) - 1):
+                    if gaps[i] >= gaps[i+1] - gap_errors[i+1]:
+                        optimal_k_gap = i + 2
+                        break
+                else:
+                    optimal_k_gap = gaps.index(max(gaps)) + 2
+                
+                optimal_k = optimal_k_silhouette
+                st.session_state.selected_k = optimal_k
+                
+                st.markdown("### Optimization Summary")
+                opt_col1, opt_col2 = st.columns(2)
+                with opt_col1:
+                    st.metric("Optimal K (Silhouette)", optimal_k_silhouette)
+                with opt_col2:
+                    st.metric("Optimal K (Gap Statistic)", optimal_k_gap)
+            else:
+                optimal_k = optimal_k_silhouette
+                st.session_state.selected_k = optimal_k
+            
             st.session_state.elbow_done = True
             
             st.success(f"Analysis complete! Suggested optimal K: {optimal_k} (based on highest silhouette score)")
@@ -527,6 +609,7 @@ def page_model_training():
     st.info(f"Training models with K = {k} clusters")
     
     st.markdown("### Select Models to Train")
+    st.markdown("**Standard Clustering Algorithms** (use selected K)")
     
     col1, col2, col3 = st.columns(3)
     
@@ -537,6 +620,31 @@ def page_model_training():
     with col3:
         train_agg = st.checkbox("Agglomerative Clustering", value=True)
     
+    st.markdown("**Advanced Clustering Algorithms**")
+    col4, col5, col6 = st.columns(3)
+    
+    with col4:
+        train_spectral = st.checkbox("Spectral Clustering", value=False)
+    with col5:
+        train_dbscan = st.checkbox("DBSCAN (auto clusters)", value=False, 
+                                   help="DBSCAN automatically determines cluster count based on density")
+    with col6:
+        train_hdbscan = st.checkbox("HDBSCAN (auto clusters)", value=False,
+                                    help="HDBSCAN automatically determines cluster count based on hierarchical density")
+    
+    if train_dbscan or train_hdbscan:
+        st.markdown("**Density-Based Parameters**")
+        db_col1, db_col2 = st.columns(2)
+        with db_col1:
+            eps_value = st.slider("DBSCAN eps (neighborhood size)", 0.1, 2.0, 0.5, 0.1,
+                                  help="Maximum distance between points in a neighborhood")
+        with db_col2:
+            min_samples = st.slider("Min samples per cluster", 2, 20, 5,
+                                    help="Minimum points required to form a dense region")
+    else:
+        eps_value = 0.5
+        min_samples = 5
+    
     col_btn1, col_btn2 = st.columns(2)
     
     with col_btn1:
@@ -545,16 +653,22 @@ def page_model_training():
         train_all = st.button("Train All Models")
     
     if train_all:
-        train_kmeans = train_gmm = train_agg = True
+        train_kmeans = train_gmm = train_agg = train_spectral = train_dbscan = train_hdbscan = True
     
     if train_selected or train_all:
         models_to_train = []
         if train_kmeans:
-            models_to_train.append(('KMeans', KMeans(n_clusters=k, random_state=42, n_init=10)))
+            models_to_train.append(('KMeans', KMeans(n_clusters=k, random_state=42, n_init=10), 'standard'))
         if train_gmm:
-            models_to_train.append(('GMM', GaussianMixture(n_components=k, random_state=42)))
+            models_to_train.append(('GMM', GaussianMixture(n_components=k, random_state=42), 'gmm'))
         if train_agg:
-            models_to_train.append(('Agglomerative', AgglomerativeClustering(n_clusters=k)))
+            models_to_train.append(('Agglomerative', AgglomerativeClustering(n_clusters=k), 'standard'))
+        if train_spectral:
+            models_to_train.append(('Spectral', SpectralClustering(n_clusters=k, random_state=42, affinity='nearest_neighbors'), 'standard'))
+        if train_dbscan:
+            models_to_train.append(('DBSCAN', DBSCAN(eps=eps_value, min_samples=min_samples), 'density'))
+        if train_hdbscan:
+            models_to_train.append(('HDBSCAN', hdbscan.HDBSCAN(min_cluster_size=min_samples, min_samples=min_samples), 'density'))
         
         if not models_to_train:
             st.warning("Please select at least one model to train.")
@@ -563,18 +677,30 @@ def page_model_training():
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        for i, (name, model) in enumerate(models_to_train):
+        for i, (name, model, model_type) in enumerate(models_to_train):
             status_text.text(f"Training {name}...")
             
-            if name == 'GMM':
+            if model_type == 'gmm':
                 model.fit(X_scaled)
                 labels = model.predict(X_scaled)
             else:
                 labels = model.fit_predict(X_scaled)
             
-            sil_score = silhouette_score(X_scaled, labels)
-            db_score = davies_bouldin_score(X_scaled, labels)
-            ch_score = calinski_harabasz_score(X_scaled, labels)
+            unique_labels = set(labels)
+            if -1 in unique_labels:
+                n_clusters = len(unique_labels) - 1
+                noise_count = list(labels).count(-1)
+                st.info(f"{name}: Found {n_clusters} clusters with {noise_count} noise points")
+            
+            valid_mask = labels != -1
+            if valid_mask.sum() > 1 and len(set(labels[valid_mask])) > 1:
+                sil_score = silhouette_score(X_scaled[valid_mask], labels[valid_mask])
+                db_score = davies_bouldin_score(X_scaled[valid_mask], labels[valid_mask])
+                ch_score = calinski_harabasz_score(X_scaled[valid_mask], labels[valid_mask])
+            else:
+                sil_score = 0.0
+                db_score = float('inf')
+                ch_score = 0.0
             
             centroids = compute_cluster_centroids(X_scaled, labels)
             
@@ -980,7 +1106,7 @@ def page_dashboard():
     
     st.markdown("### Export Data")
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("#### Clustered Dataset")
@@ -1018,6 +1144,388 @@ def page_dashboard():
             file_name="model_metrics.csv",
             mime="text/csv"
         )
+    
+    with col3:
+        st.markdown("#### PDF Report")
+        
+        if st.button("Generate PDF Report"):
+            pdf_buffer = generate_pdf_report(
+                clustered_df, 
+                learner_types, 
+                st.session_state.metrics, 
+                active_model,
+                st.session_state.selected_k
+            )
+            
+            st.download_button(
+                label="Download PDF Report",
+                data=pdf_buffer,
+                file_name="lms_cluster_report.pdf",
+                mime="application/pdf"
+            )
+
+def generate_pdf_report(clustered_df, learner_types, metrics, active_model, k):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#008080'),
+        spaceAfter=20,
+        alignment=1
+    )
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#2F4F4F'),
+        spaceBefore=15,
+        spaceAfter=10
+    )
+    normal_style = styles['Normal']
+    
+    elements = []
+    
+    elements.append(Paragraph("LMS Student Behavior Analytics Report", title_style))
+    elements.append(Spacer(1, 20))
+    
+    elements.append(Paragraph("Executive Summary", heading_style))
+    summary_text = f"""
+    This report presents the results of student behavior segmentation analysis using machine learning.
+    The analysis identified {k} distinct learner segments based on behavioral patterns including 
+    total clicks, active days, quiz attempts, and quiz scores. The active model used for this 
+    analysis is {active_model}.
+    """
+    elements.append(Paragraph(summary_text, normal_style))
+    elements.append(Spacer(1, 15))
+    
+    elements.append(Paragraph("Model Performance Metrics", heading_style))
+    
+    metrics_table_data = [['Model', 'Silhouette', 'Davies-Bouldin', 'Calinski-Harabasz']]
+    for name, m in metrics.items():
+        metrics_table_data.append([
+            name,
+            f"{m['Silhouette Score']:.4f}",
+            f"{m['Davies-Bouldin Index']:.4f}",
+            f"{m['Calinski-Harabasz Score']:.2f}"
+        ])
+    
+    metrics_table = Table(metrics_table_data, colWidths=[1.5*inch, 1.2*inch, 1.3*inch, 1.5*inch])
+    metrics_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#008080')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f8f8')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#008080')),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+    ]))
+    elements.append(metrics_table)
+    elements.append(Spacer(1, 20))
+    
+    elements.append(Paragraph("Cluster Profiles", heading_style))
+    
+    cluster_stats = clustered_df.groupby('Cluster')[FEATURE_COLUMNS].mean()
+    cluster_counts = clustered_df['Cluster'].value_counts().sort_index()
+    
+    for cluster in sorted(clustered_df['Cluster'].unique()):
+        if cluster == -1:
+            continue
+            
+        learner_type = learner_types.get(cluster, f"Group {cluster}")
+        count = cluster_counts.get(cluster, 0)
+        stats = cluster_stats.loc[cluster]
+        desc = get_cluster_description(learner_type, stats)
+        
+        cluster_title = f"Cluster {cluster}: {learner_type} ({count} students)"
+        elements.append(Paragraph(cluster_title, ParagraphStyle(
+            'ClusterTitle',
+            parent=styles['Heading3'],
+            fontSize=12,
+            textColor=colors.HexColor('#008080'),
+            spaceBefore=10,
+            spaceAfter=5
+        )))
+        
+        elements.append(Paragraph(f"<b>Behavior:</b> {desc['behavior']}", normal_style))
+        elements.append(Paragraph(f"<b>Recommendation:</b> {desc['intervention']}", normal_style))
+        
+        stats_text = f"Avg Clicks: {stats['total_clicks']:.1f} | Active Days: {stats['active_days']:.1f} | Quiz Score: {stats['avg_quiz_score']:.1f}"
+        elements.append(Paragraph(stats_text, normal_style))
+        elements.append(Spacer(1, 10))
+    
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph("Methodology", heading_style))
+    methodology_text = """
+    The analysis uses StandardScaler for feature normalization and PCA for dimensionality reduction.
+    Multiple clustering algorithms were evaluated including KMeans, GMM, and Agglomerative clustering.
+    Cluster quality was assessed using Silhouette Score, Davies-Bouldin Index, and Calinski-Harabasz Score.
+    Learner types are assigned based on relative feature values within each cluster.
+    """
+    elements.append(Paragraph(methodology_text, normal_style))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+def page_time_series():
+    st.markdown('<h1 class="main-header">Time-Series Engagement Analysis</h1>', unsafe_allow_html=True)
+    
+    if st.session_state.df is None:
+        st.warning("Please upload a dataset first.")
+        return
+    
+    df = st.session_state.df
+    
+    st.markdown("""
+    <div class="info-box">
+    Analyze student engagement patterns over time using registration data. This analysis helps identify 
+    trends in student activity and the relationship between registration timing and outcomes.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    has_date_reg = 'date_registration' in df.columns
+    has_date_unreg = 'date_unregistration' in df.columns
+    
+    if not has_date_reg:
+        st.warning("date_registration column not found. Limited time-series analysis available.")
+        
+        st.markdown("### Available Feature Trend Analysis")
+        st.markdown("Simulating engagement timeline based on behavioral features.")
+        
+        if st.session_state.clustered_df is not None:
+            clustered_df = st.session_state.clustered_df
+            learner_types = st.session_state.learner_types
+            
+            st.markdown("### Engagement Patterns by Cluster")
+            
+            cluster_engagement = clustered_df.groupby('Cluster').agg({
+                'total_clicks': 'mean',
+                'active_days': 'mean',
+                'avg_daily_clicks': 'mean',
+                'quizzes_attempted': 'mean',
+                'avg_quiz_score': 'mean'
+            }).round(2)
+            
+            fig_engagement = go.Figure()
+            
+            for cluster in cluster_engagement.index:
+                learner_type = learner_types.get(cluster, f"Cluster {cluster}")
+                values = cluster_engagement.loc[cluster].values
+                normalized_values = (values - values.min()) / (values.max() - values.min() + 0.001)
+                
+                fig_engagement.add_trace(go.Scatterpolar(
+                    r=list(normalized_values) + [normalized_values[0]],
+                    theta=FEATURE_COLUMNS + [FEATURE_COLUMNS[0]],
+                    fill='toself',
+                    name=f"Cluster {cluster}: {learner_type}"
+                ))
+            
+            fig_engagement.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                showlegend=True,
+                title="Normalized Feature Profiles by Cluster (Radar Chart)"
+            )
+            st.plotly_chart(fig_engagement, use_container_width=True)
+            
+            st.markdown("### Engagement Intensity Distribution")
+            
+            clustered_df['engagement_score'] = (
+                clustered_df['total_clicks'] / clustered_df['total_clicks'].max() * 0.25 +
+                clustered_df['active_days'] / clustered_df['active_days'].max() * 0.25 +
+                clustered_df['avg_daily_clicks'] / clustered_df['avg_daily_clicks'].max() * 0.25 +
+                clustered_df['quizzes_attempted'] / clustered_df['quizzes_attempted'].max() * 0.25
+            )
+            
+            fig_intensity = px.histogram(
+                clustered_df,
+                x='engagement_score',
+                color='Cluster',
+                nbins=30,
+                title="Engagement Score Distribution by Cluster",
+                color_discrete_sequence=CLUSTER_COLORS
+            )
+            st.plotly_chart(fig_intensity, use_container_width=True)
+            
+            st.markdown("### Activity Trends by Final Result")
+            
+            activity_by_result = df.groupby('final_result')[FEATURE_COLUMNS].mean()
+            
+            fig_result_trends = go.Figure()
+            for result in activity_by_result.index:
+                fig_result_trends.add_trace(go.Bar(
+                    name=result,
+                    x=FEATURE_COLUMNS,
+                    y=activity_by_result.loc[result].values
+                ))
+            
+            fig_result_trends.update_layout(
+                barmode='group',
+                title="Average Feature Values by Final Result",
+                xaxis_title="Feature",
+                yaxis_title="Average Value"
+            )
+            st.plotly_chart(fig_result_trends, use_container_width=True)
+        else:
+            st.info("Train a model first to see cluster-based engagement analysis.")
+    else:
+        st.markdown("### Registration Timeline Analysis")
+        
+        df_with_dates = df.copy()
+        df_with_dates['date_registration'] = pd.to_numeric(df_with_dates['date_registration'], errors='coerce')
+        
+        if has_date_unreg:
+            df_with_dates['date_unregistration'] = pd.to_numeric(df_with_dates['date_unregistration'], errors='coerce')
+            df_with_dates['active_duration'] = df_with_dates['date_unregistration'] - df_with_dates['date_registration']
+        
+        reg_by_date = df_with_dates.groupby('date_registration').agg({
+            'id_student': 'count',
+            'total_clicks': 'mean',
+            'avg_quiz_score': 'mean'
+        }).reset_index()
+        reg_by_date.columns = ['Registration Day', 'Student Count', 'Avg Clicks', 'Avg Quiz Score']
+        
+        fig_timeline = make_subplots(rows=2, cols=1, 
+                                      subplot_titles=['Registration Volume Over Time', 'Average Engagement Over Time'],
+                                      vertical_spacing=0.15)
+        
+        fig_timeline.add_trace(
+            go.Scatter(x=reg_by_date['Registration Day'], y=reg_by_date['Student Count'],
+                      mode='lines+markers', name='Registrations', line=dict(color='#008080')),
+            row=1, col=1
+        )
+        
+        fig_timeline.add_trace(
+            go.Scatter(x=reg_by_date['Registration Day'], y=reg_by_date['Avg Clicks'],
+                      mode='lines+markers', name='Avg Clicks', line=dict(color='#20B2AA')),
+            row=2, col=1
+        )
+        
+        fig_timeline.update_layout(height=600, showlegend=True)
+        st.plotly_chart(fig_timeline, use_container_width=True)
+        
+        st.markdown("### Early vs Late Registrants Analysis")
+        
+        median_reg = df_with_dates['date_registration'].median()
+        df_with_dates['registration_timing'] = np.where(
+            df_with_dates['date_registration'] <= median_reg, 'Early', 'Late'
+        )
+        
+        timing_comparison = df_with_dates.groupby('registration_timing')[FEATURE_COLUMNS].mean()
+        
+        fig_timing = px.bar(
+            timing_comparison.T,
+            barmode='group',
+            title="Feature Comparison: Early vs Late Registrants",
+            color_discrete_sequence=['#008080', '#FF6B6B']
+        )
+        st.plotly_chart(fig_timing, use_container_width=True)
+
+def page_vle_engagement():
+    st.markdown('<h1 class="main-header">Phase 2: VLE Engagement Data</h1>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="info-box">
+    <strong>Phase 2 Enhancement</strong><br><br>
+    This page supports integration of additional Virtual Learning Environment (VLE) data 
+    for enhanced student segmentation. Upload VLE interaction data to enrich the behavioral analysis.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.session_state.df is None:
+        st.warning("Please upload a base LMS dataset first in the Data Upload page.")
+        return
+    
+    st.markdown("### Upload VLE Engagement Data")
+    st.markdown("""
+    VLE data can include:
+    - **Forum activity**: Posts, replies, views
+    - **Resource access**: PDF downloads, video watches, page views
+    - **Assignment submissions**: Timeliness, revision count
+    - **Collaboration metrics**: Group activity, peer interactions
+    """)
+    
+    vle_file = st.file_uploader("Upload VLE Data (CSV)", type=['csv'], key='vle_upload')
+    
+    if vle_file is not None:
+        try:
+            vle_df = pd.read_csv(vle_file)
+            st.success("VLE data loaded successfully!")
+            
+            st.markdown("### VLE Data Preview")
+            st.dataframe(vle_df.head(10), use_container_width=True)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("VLE Records", f"{len(vle_df):,}")
+            with col2:
+                st.metric("VLE Features", f"{len(vle_df.columns)}")
+            with col3:
+                if 'id_student' in vle_df.columns:
+                    matched = len(set(vle_df['id_student']) & set(st.session_state.df['id_student']))
+                    st.metric("Matched Students", f"{matched:,}")
+                else:
+                    st.metric("Matched Students", "N/A")
+            
+            if 'id_student' in vle_df.columns:
+                st.markdown("### Merge with LMS Data")
+                
+                vle_numeric_cols = vle_df.select_dtypes(include=[np.number]).columns.tolist()
+                vle_numeric_cols = [c for c in vle_numeric_cols if c != 'id_student']
+                
+                if vle_numeric_cols:
+                    selected_vle_features = st.multiselect(
+                        "Select VLE features to include in analysis",
+                        vle_numeric_cols,
+                        default=vle_numeric_cols[:3] if len(vle_numeric_cols) >= 3 else vle_numeric_cols
+                    )
+                    
+                    if st.button("Merge VLE Data", type="primary"):
+                        vle_agg = vle_df.groupby('id_student')[selected_vle_features].sum().reset_index()
+                        
+                        merged_df = st.session_state.df.merge(vle_agg, on='id_student', how='left')
+                        merged_df[selected_vle_features] = merged_df[selected_vle_features].fillna(0)
+                        
+                        st.session_state.df = merged_df
+                        
+                        global FEATURE_COLUMNS
+                        new_features = FEATURE_COLUMNS + selected_vle_features
+                        
+                        st.success(f"Successfully merged {len(selected_vle_features)} VLE features!")
+                        st.info("Go to Cluster Count Selection to re-analyze with enhanced features.")
+                        
+                        st.markdown("### Enhanced Dataset Preview")
+                        st.dataframe(merged_df.head(10), use_container_width=True)
+                else:
+                    st.warning("No numeric columns found in VLE data for analysis.")
+            else:
+                st.warning("VLE data must contain 'id_student' column for merging.")
+                
+        except Exception as e:
+            st.error(f"Error loading VLE data: {str(e)}")
+    
+    st.markdown("---")
+    st.markdown("### VLE Feature Suggestions")
+    
+    st.markdown("""
+    **Recommended VLE columns for enhanced segmentation:**
+    
+    | Feature | Description | Impact on Segmentation |
+    |---------|-------------|------------------------|
+    | forum_posts | Number of forum posts created | Measures active participation |
+    | forum_replies | Number of replies to others | Measures collaboration |
+    | resource_views | Total resource access count | Measures content engagement |
+    | video_watched | Video content consumed | Measures multimedia engagement |
+    | assignment_early | Assignments submitted early | Measures time management |
+    | peer_feedback | Peer feedback given | Measures community involvement |
+    
+    Including these features can reveal hidden patterns in student engagement beyond basic LMS metrics.
+    """)
 
 def page_about():
     st.markdown('<h1 class="main-header">About This Application</h1>', unsafe_allow_html=True)
@@ -1150,8 +1658,10 @@ def main():
         "Cluster Count Selection": page_cluster_count,
         "Model Training": page_model_training,
         "Cluster Interpretation": page_cluster_interpretation,
+        "Time-Series Analysis": page_time_series,
         "New Student Prediction": page_prediction,
         "Dashboard and Exports": page_dashboard,
+        "VLE Data (Phase 2)": page_vle_engagement,
         "About": page_about
     }
     
