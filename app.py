@@ -826,7 +826,7 @@ def page_model_training():
         metrics_df['Rank'] = range(1, len(metrics_df) + 1)
         
         st.dataframe(metrics_df[['Rank', 'Model', 'Silhouette Score', 'Davies-Bouldin Index', 'Calinski-Harabasz Score']], 
-                     use_container_width=True)
+                     )
         
         st.markdown("""
         **Metric Interpretation:**
