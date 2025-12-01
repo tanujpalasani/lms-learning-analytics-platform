@@ -41,6 +41,7 @@ def init_session_state():
         'models': {},
         'metrics': {},
         'cluster_labels': {},
+        'cluster_centroids': {},
         'active_model': None,
         'clustered_df': None,
         'learner_types': {}
@@ -48,6 +49,24 @@ def init_session_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+def compute_cluster_centroids(X_scaled, labels):
+    unique_labels = np.unique(labels)
+    centroids = {}
+    for label in unique_labels:
+        mask = labels == label
+        centroids[label] = X_scaled[mask].mean(axis=0)
+    return centroids
+
+def predict_nearest_centroid(input_scaled, centroids):
+    min_dist = float('inf')
+    predicted_cluster = 0
+    for label, centroid in centroids.items():
+        dist = np.linalg.norm(input_scaled - centroid)
+        if dist < min_dist:
+            min_dist = dist
+            predicted_cluster = label
+    return predicted_cluster
 
 init_session_state()
 
@@ -246,6 +265,7 @@ def page_upload():
                 st.session_state.models = {}
                 st.session_state.metrics = {}
                 st.session_state.cluster_labels = {}
+                st.session_state.cluster_centroids = {}
                 st.session_state.active_model = None
                 st.session_state.clustered_df = None
                 st.session_state.elbow_done = False
@@ -556,8 +576,11 @@ def page_model_training():
             db_score = davies_bouldin_score(X_scaled, labels)
             ch_score = calinski_harabasz_score(X_scaled, labels)
             
+            centroids = compute_cluster_centroids(X_scaled, labels)
+            
             st.session_state.models[name] = model
             st.session_state.cluster_labels[name] = labels
+            st.session_state.cluster_centroids[name] = centroids
             st.session_state.metrics[name] = {
                 'Silhouette Score': sil_score,
                 'Davies-Bouldin Index': db_score,
@@ -831,10 +854,19 @@ def page_prediction():
         
         model = st.session_state.models[active_model]
         
-        if active_model == 'GMM':
+        if active_model == 'KMeans':
             cluster = model.predict(input_scaled)[0]
+        elif active_model == 'GMM':
+            cluster = model.predict(input_scaled)[0]
+        elif active_model == 'Agglomerative':
+            centroids = st.session_state.cluster_centroids[active_model]
+            cluster = predict_nearest_centroid(input_scaled[0], centroids)
         else:
-            cluster = model.predict(input_scaled)[0] if hasattr(model, 'predict') else model.fit_predict(input_scaled)[0]
+            centroids = st.session_state.cluster_centroids.get(active_model)
+            if centroids:
+                cluster = predict_nearest_centroid(input_scaled[0], centroids)
+            else:
+                cluster = 0
         
         learner_type = st.session_state.learner_types.get(cluster, f"Group {cluster}")
         desc = get_cluster_description(learner_type, None)
