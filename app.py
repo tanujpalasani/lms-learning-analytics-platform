@@ -319,7 +319,7 @@ def page_upload():
                 st.session_state.elbow_done = False
                 
                 st.markdown("### Dataset Preview")
-                st.dataframe(df.head(10), use_container_width=True)
+                st.dataframe(df.head(10))
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -336,7 +336,7 @@ def page_upload():
                     'Non-Null Count': df.count().values.tolist(),
                     'Null Count': df.isnull().sum().values.tolist()
                 })
-                st.dataframe(col_info, use_container_width=True)
+                st.dataframe(col_info)
             else:
                 st.error(message)
                 
@@ -346,7 +346,7 @@ def page_upload():
     elif st.session_state.df is not None:
         st.info("Dataset already loaded. You can upload a new file to replace it.")
         st.markdown("### Current Dataset Preview")
-        st.dataframe(st.session_state.df.head(10), use_container_width=True)
+        st.dataframe(st.session_state.df.head(10))
 
 def page_eda():
     st.markdown('<h1 class="main-header">Exploratory Data Analysis</h1>', unsafe_allow_html=True)
@@ -358,7 +358,7 @@ def page_eda():
     df = st.session_state.df
     
     st.markdown("### Summary Statistics")
-    st.dataframe(df[FEATURE_COLUMNS].describe(), use_container_width=True)
+    st.dataframe(df[FEATURE_COLUMNS].describe())
     
     st.markdown("---")
     
@@ -377,7 +377,7 @@ def page_eda():
         )
     
     fig.update_layout(height=500, showlegend=False, title_text="Distribution of Behavioral Features")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
     
     st.markdown("---")
     
@@ -394,7 +394,7 @@ def page_eda():
         aspect='auto'
     )
     fig_corr.update_layout(height=500)
-    st.plotly_chart(fig_corr, use_container_width=True)
+    st.plotly_chart(fig_corr)
     
     st.markdown("---")
     
@@ -410,7 +410,7 @@ def page_eda():
             title="Final Result Distribution",
             color_discrete_sequence=TEAL_PALETTE
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie)
     
     with col2:
         fig_bar = px.bar(
@@ -421,7 +421,7 @@ def page_eda():
             color=outcome_counts.index,
             color_discrete_sequence=TEAL_PALETTE
         )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar)
     
     st.markdown("---")
     
@@ -440,7 +440,7 @@ def page_eda():
         color_discrete_sequence=TEAL_PALETTE,
         opacity=0.6
     )
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scatter)
     
     st.markdown("---")
     
@@ -454,7 +454,7 @@ def page_eda():
         color='final_result',
         color_discrete_sequence=TEAL_PALETTE
     )
-    st.plotly_chart(fig_box, use_container_width=True)
+    st.plotly_chart(fig_box)
 
 def compute_gap_statistic(X, k_range, n_refs=10):
     gaps = []
@@ -550,7 +550,7 @@ def page_cluster_count():
                     yaxis_title="Inertia",
                     height=400
                 )
-                st.plotly_chart(fig_elbow, use_container_width=True)
+                st.plotly_chart(fig_elbow)
             
             with col2:
                 fig_sil = go.Figure()
@@ -567,7 +567,7 @@ def page_cluster_count():
                     yaxis_title="Silhouette Score",
                     height=400
                 )
-                st.plotly_chart(fig_sil, use_container_width=True)
+                st.plotly_chart(fig_sil)
             
             if include_gap:
                 with col3:
@@ -586,7 +586,7 @@ def page_cluster_count():
                         yaxis_title="Gap Statistic",
                         height=400
                     )
-                    st.plotly_chart(fig_gap, use_container_width=True)
+                    st.plotly_chart(fig_gap)
             
             optimal_k_silhouette = silhouettes.index(max(silhouettes)) + 2
             
@@ -714,7 +714,7 @@ def page_model_training():
                         yaxis_title=f"{min_samples}-NN Distance",
                         height=300
                     )
-                    st.plotly_chart(fig_kdist, use_container_width=True)
+                    st.plotly_chart(fig_kdist)
                 
                 allow_override = st.checkbox("Override auto-detected eps", value=False)
                 if allow_override:
@@ -882,7 +882,7 @@ def page_cluster_interpretation():
     st.markdown("### Cluster Statistics")
     
     cluster_stats = clustered_df.groupby('Cluster')[FEATURE_COLUMNS].mean()
-    st.dataframe(cluster_stats.round(2), use_container_width=True)
+    st.dataframe(cluster_stats.round(2))
     
     st.markdown("---")
     
@@ -897,7 +897,7 @@ def page_cluster_interpretation():
         color_discrete_sequence=TEAL_PALETTE
     )
     fig_crosstab.update_layout(xaxis_title="Cluster", yaxis_title="Count")
-    st.plotly_chart(fig_crosstab, use_container_width=True)
+    st.plotly_chart(fig_crosstab)
     
     st.markdown("---")
     
@@ -966,7 +966,7 @@ def page_cluster_interpretation():
             )
         
         fig_2d.update_layout(height=500)
-        st.plotly_chart(fig_2d, use_container_width=True)
+        st.plotly_chart(fig_2d)
     
     with col2:
         st.markdown("#### 3D PCA Visualization")
@@ -995,7 +995,7 @@ def page_cluster_interpretation():
             )
         
         fig_3d.update_layout(height=500)
-        st.plotly_chart(fig_3d, use_container_width=True)
+        st.plotly_chart(fig_3d)
     
     st.markdown("---")
     
@@ -1012,7 +1012,7 @@ def page_cluster_interpretation():
         title="Feature Comparison Across Clusters"
     )
     fig_parallel.update_layout(height=500)
-    st.plotly_chart(fig_parallel, use_container_width=True)
+    st.plotly_chart(fig_parallel)
     
     st.markdown("---")
     
@@ -1029,7 +1029,7 @@ def page_cluster_interpretation():
         title=f"{selected_feature} Distribution by Cluster",
         color_discrete_sequence=CLUSTER_COLORS
     )
-    st.plotly_chart(fig_violin, use_container_width=True)
+    st.plotly_chart(fig_violin)
 
 def page_prediction():
     st.markdown('<h1 class="main-header">New Student Prediction</h1>', unsafe_allow_html=True)
@@ -1137,7 +1137,7 @@ def page_dashboard():
             color=cluster_counts.index.astype(str),
             color_discrete_sequence=CLUSTER_COLORS
         )
-        st.plotly_chart(fig_dist, use_container_width=True)
+        st.plotly_chart(fig_dist)
     
     with col2:
         fig_pie = px.pie(
@@ -1146,7 +1146,7 @@ def page_dashboard():
             title="Cluster Proportions",
             color_discrete_sequence=CLUSTER_COLORS
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie)
     
     st.markdown("---")
     
@@ -1161,7 +1161,7 @@ def page_dashboard():
         color_discrete_sequence=TEAL_PALETTE
     )
     fig_stacked.update_layout(yaxis_title="Percentage", xaxis_title="Cluster")
-    st.plotly_chart(fig_stacked, use_container_width=True)
+    st.plotly_chart(fig_stacked)
     
     st.markdown("---")
     
@@ -1186,7 +1186,7 @@ def page_dashboard():
         )
     
     fig_metrics.update_layout(height=600, showlegend=False, title_text="Average Feature Values per Cluster")
-    st.plotly_chart(fig_metrics, use_container_width=True)
+    st.plotly_chart(fig_metrics)
     
     st.markdown("---")
     
@@ -1417,7 +1417,7 @@ def page_time_series():
                 showlegend=True,
                 title="Normalized Feature Profiles by Cluster (Radar Chart)"
             )
-            st.plotly_chart(fig_engagement, use_container_width=True)
+            st.plotly_chart(fig_engagement)
             
             st.markdown("### Engagement Intensity Distribution")
             
@@ -1436,7 +1436,7 @@ def page_time_series():
                 title="Engagement Score Distribution by Cluster",
                 color_discrete_sequence=CLUSTER_COLORS
             )
-            st.plotly_chart(fig_intensity, use_container_width=True)
+            st.plotly_chart(fig_intensity)
             
             st.markdown("### Activity Trends by Final Result")
             
@@ -1456,7 +1456,7 @@ def page_time_series():
                 xaxis_title="Feature",
                 yaxis_title="Average Value"
             )
-            st.plotly_chart(fig_result_trends, use_container_width=True)
+            st.plotly_chart(fig_result_trends)
         else:
             st.info("Train a model first to see cluster-based engagement analysis.")
     else:
@@ -1493,7 +1493,7 @@ def page_time_series():
         )
         
         fig_timeline.update_layout(height=600, showlegend=True)
-        st.plotly_chart(fig_timeline, use_container_width=True)
+        st.plotly_chart(fig_timeline)
         
         st.markdown("### Early vs Late Registrants Analysis")
         
@@ -1510,7 +1510,7 @@ def page_time_series():
             title="Feature Comparison: Early vs Late Registrants",
             color_discrete_sequence=['#008080', '#FF6B6B']
         )
-        st.plotly_chart(fig_timing, use_container_width=True)
+        st.plotly_chart(fig_timing)
 
 def page_vle_engagement():
     st.markdown('<h1 class="main-header">Phase 2: VLE Engagement Data</h1>', unsafe_allow_html=True)
@@ -1544,7 +1544,7 @@ def page_vle_engagement():
             st.success("VLE data loaded successfully!")
             
             st.markdown("### VLE Data Preview")
-            st.dataframe(vle_df.head(10), use_container_width=True)
+            st.dataframe(vle_df.head(10))
             
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -1586,7 +1586,7 @@ def page_vle_engagement():
                         st.info("Go to Cluster Count Selection to re-analyze with enhanced features.")
                         
                         st.markdown("### Enhanced Dataset Preview")
-                        st.dataframe(merged_df.head(10), use_container_width=True)
+                        st.dataframe(merged_df.head(10))
                 else:
                     st.warning("No numeric columns found in VLE data for analysis.")
             else:
