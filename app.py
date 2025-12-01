@@ -11,6 +11,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN, SpectralClu
 from sklearn.mixture import GaussianMixture
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+from sklearn.neighbors import NearestNeighbors
 import hdbscan
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
@@ -74,6 +75,43 @@ def predict_nearest_centroid(input_scaled, centroids):
             min_dist = dist
             predicted_cluster = label
     return predicted_cluster
+
+def compute_optimal_eps(X_scaled, min_samples=5):
+    """
+    Compute optimal eps for DBSCAN using k-nearest neighbor distance analysis.
+    Uses the 'elbow' method on the k-distance graph where k = min_samples.
+    """
+    n_neighbors = min(min_samples, len(X_scaled) - 1)
+    nn = NearestNeighbors(n_neighbors=n_neighbors)
+    nn.fit(X_scaled)
+    distances, _ = nn.kneighbors(X_scaled)
+    k_distances = np.sort(distances[:, -1])
+    
+    n_points = len(k_distances)
+    line_start = np.array([0, k_distances[0]])
+    line_end = np.array([n_points - 1, k_distances[-1]])
+    line_vec = line_end - line_start
+    line_len = np.linalg.norm(line_vec)
+    line_unit = line_vec / line_len
+    
+    max_distance = 0
+    best_idx = n_points // 2
+    
+    for i in range(n_points):
+        point = np.array([i, k_distances[i]])
+        vec_to_point = point - line_start
+        proj_length = np.dot(vec_to_point, line_unit)
+        proj_point = line_start + proj_length * line_unit
+        distance = np.linalg.norm(point - proj_point)
+        
+        if distance > max_distance:
+            max_distance = distance
+            best_idx = i
+    
+    optimal_eps = k_distances[best_idx]
+    optimal_eps = max(0.1, min(optimal_eps, 3.0))
+    
+    return optimal_eps, k_distances
 
 init_session_state()
 
@@ -632,15 +670,60 @@ def page_model_training():
         train_hdbscan = st.checkbox("HDBSCAN (auto clusters)", value=False,
                                     help="HDBSCAN automatically determines cluster count based on hierarchical density")
     
+    auto_eps_value = None
+    k_distances = None
+    
     if train_dbscan or train_hdbscan:
         st.markdown("**Density-Based Parameters**")
+        
         db_col1, db_col2 = st.columns(2)
         with db_col1:
-            eps_value = st.slider("DBSCAN eps (neighborhood size)", 0.1, 2.0, 0.5, 0.1,
-                                  help="Maximum distance between points in a neighborhood")
-        with db_col2:
             min_samples = st.slider("Min samples per cluster", 2, 20, 5,
                                     help="Minimum points required to form a dense region")
+        with db_col2:
+            use_auto_eps = st.checkbox("Auto-detect eps (recommended)", value=True,
+                                       help="Automatically compute optimal eps using k-NN distance analysis")
+        
+        if train_dbscan:
+            if use_auto_eps:
+                with st.spinner("Computing optimal eps using k-NN analysis..."):
+                    auto_eps_value, k_distances = compute_optimal_eps(X_scaled, min_samples)
+                
+                st.markdown(f"**Detected optimal eps: {auto_eps_value:.3f}**")
+                
+                with st.expander("View k-Distance Plot (eps detection visualization)"):
+                    fig_kdist = go.Figure()
+                    fig_kdist.add_trace(go.Scatter(
+                        y=k_distances,
+                        mode='lines',
+                        name='k-distances',
+                        line=dict(color='#008080')
+                    ))
+                    
+                    elbow_idx = np.searchsorted(k_distances, auto_eps_value)
+                    fig_kdist.add_hline(y=auto_eps_value, line_dash="dash", 
+                                        annotation_text=f"Optimal eps = {auto_eps_value:.3f}",
+                                        line_color="red")
+                    
+                    fig_kdist.update_layout(
+                        title="k-Nearest Neighbor Distance Plot",
+                        xaxis_title="Points (sorted by distance)",
+                        yaxis_title=f"{min_samples}-NN Distance",
+                        height=300
+                    )
+                    st.plotly_chart(fig_kdist, use_container_width=True)
+                
+                allow_override = st.checkbox("Override auto-detected eps", value=False)
+                if allow_override:
+                    eps_value = st.slider("Manual eps override", 0.1, 3.0, float(auto_eps_value), 0.05,
+                                          help="Override the automatically detected eps value")
+                else:
+                    eps_value = auto_eps_value
+            else:
+                eps_value = st.slider("DBSCAN eps (neighborhood size)", 0.1, 3.0, 0.5, 0.05,
+                                      help="Maximum distance between points in a neighborhood")
+        else:
+            eps_value = 0.5
     else:
         eps_value = 0.5
         min_samples = 5
