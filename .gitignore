@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific (Include data and models for deployment)
+# data/raw/  <-- Uncomment if you want to exclude raw data
+# models/    <-- We want to include models for this deployment
+
+data/raw/
