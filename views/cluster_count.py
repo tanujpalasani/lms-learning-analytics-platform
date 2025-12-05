@@ -151,7 +151,7 @@ def render():
                 line=dict(color='#008080', width=3), marker=dict(size=10)
             ))
             fig_elbow.update_layout(title="Elbow Method (Inertia)", xaxis_title="K", yaxis_title="Inertia", height=350)
-            st.plotly_chart(fig_elbow, use_container_width=True)
+            st.plotly_chart(fig_elbow, width="stretch")
         
         with col2:
             fig_sil = go.Figure()
@@ -161,7 +161,7 @@ def render():
                 line=dict(color='#20B2AA', width=3), marker=dict(size=10)
             ))
             fig_sil.update_layout(title="Silhouette Score", xaxis_title="K", yaxis_title="Score", height=350)
-            st.plotly_chart(fig_sil, use_container_width=True)
+            st.plotly_chart(fig_sil, width="stretch")
             
         if results["gaps"]:
             with col3:
@@ -173,7 +173,7 @@ def render():
                     error_y=dict(type='data', array=results["gap_errors"], visible=True)
                 ))
                 fig_gap.update_layout(title="Gap Statistic", xaxis_title="K", yaxis_title="Gap", height=350)
-                st.plotly_chart(fig_gap, use_container_width=True)
+                st.plotly_chart(fig_gap, width="stretch")
         
         st.markdown("---")
         st.markdown("### 💡 Recommended Cluster Counts")
