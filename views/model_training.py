@@ -45,7 +45,12 @@ def render():
     with col2:
         train_gmm = st.checkbox("Gaussian Mixture Model (GMM)", value=True)
     with col3:
-        train_agg = st.checkbox("Agglomerative Clustering", value=True)
+        if len(df) > 5000:
+            st.warning("⚠️ Agglomerative disabled (Dataset > 5k rows)")
+            train_agg = False
+            st.caption("Agglomerative Clustering requires O(N²) memory. For 32k rows, it needs ~8GB RAM, which exceeds cloud limits.")
+        else:
+            train_agg = st.checkbox("Agglomerative Clustering", value=True)
     
     st.markdown("**Advanced Clustering Algorithms**")
     col4, col5, col6 = st.columns(3)
