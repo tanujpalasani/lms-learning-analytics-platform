@@ -3,6 +3,8 @@ LMS Student Behavior Analytics Dashboard
 Main application entry point with modular page structure.
 """
 import streamlit as st
+import matplotlib
+matplotlib.use('Agg')
 
 # Import utilities
 from utils.helpers import init_session_state
