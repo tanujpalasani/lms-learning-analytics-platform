@@ -8,6 +8,8 @@ from utils.constants import FEATURE_COLUMNS, CLUSTER_COLORS, TEAL_PALETTE
 from utils.helpers import get_cluster_description
 
 
+from sklearn.decomposition import PCA
+
 def render():
     """Render the cluster interpretation page."""
     st.markdown('<h1 class="main-header">Cluster Interpretation</h1>', unsafe_allow_html=True)
@@ -85,6 +87,18 @@ def render():
     
     st.markdown("### PCA Visualizations")
     
+    # Ensure PCA data exists (might be missing if Manual Selection was used)
+    if st.session_state.pca_2d_data is None or st.session_state.pca_3d_data is None:
+        if st.session_state.scaled_features is not None:
+            with st.spinner("Computing PCA for visualization..."):
+                pca_2d = PCA(n_components=2)
+                pca_3d = PCA(n_components=3)
+                st.session_state.pca_2d_data = pca_2d.fit_transform(st.session_state.scaled_features)
+                st.session_state.pca_3d_data = pca_3d.fit_transform(st.session_state.scaled_features)
+        else:
+            st.error("Missing scaled features. Please re-run the analysis from the beginning.")
+            return
+
     pca_2d_data = st.session_state.pca_2d_data
     pca_3d_data = st.session_state.pca_3d_data
     labels = st.session_state.cluster_labels[active_model]
