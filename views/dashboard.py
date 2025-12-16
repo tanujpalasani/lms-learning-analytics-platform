@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utils.constants import FEATURE_COLUMNS, TEAL_PALETTE, CLUSTER_COLORS
+from utils.constants import FEATURE_COLUMNS, SEQUENTIAL_PALETTE, CATEGORICAL_PALETTE, CLUSTER_COLORS
 from utils.pdf_generator import generate_pdf_report
 
 
@@ -41,7 +41,7 @@ def render():
             title="Students per Cluster",
             labels={'x': 'Cluster', 'y': 'Count'},
             color=cluster_counts.index.astype(str),
-            color_discrete_sequence=CLUSTER_COLORS
+            color_discrete_sequence=CATEGORICAL_PALETTE
         )
         st.plotly_chart(fig_dist)
     
@@ -50,7 +50,7 @@ def render():
             values=cluster_counts.values,
             names=[f"Cluster {c}: {learner_types.get(c, 'Group')}" for c in cluster_counts.index],
             title="Cluster Proportions",
-            color_discrete_sequence=CLUSTER_COLORS
+            color_discrete_sequence=CATEGORICAL_PALETTE
         )
         st.plotly_chart(fig_pie)
     
@@ -64,7 +64,7 @@ def render():
         crosstab,
         barmode='stack',
         title="Final Result Distribution by Cluster (%)",
-        color_discrete_sequence=TEAL_PALETTE
+        color_discrete_sequence=CATEGORICAL_PALETTE
     )
     fig_stacked.update_layout(yaxis_title="Percentage", xaxis_title="Cluster")
     st.plotly_chart(fig_stacked)
@@ -86,7 +86,7 @@ def render():
                 x=[f"Cluster {c}" for c in cluster_means.index],
                 y=cluster_means[col].values,
                 name=col,
-                marker_color=TEAL_PALETTE[i % len(TEAL_PALETTE)]
+                marker_color=CATEGORICAL_PALETTE[i % len(CATEGORICAL_PALETTE)]
             ),
             row=row, col=col_pos
         )

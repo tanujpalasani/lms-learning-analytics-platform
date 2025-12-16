@@ -5,7 +5,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utils.constants import FEATURE_COLUMNS, TEAL_PALETTE
+from utils.constants import FEATURE_COLUMNS, SEQUENTIAL_PALETTE, CATEGORICAL_PALETTE
 
 
 def render():
@@ -32,7 +32,7 @@ def render():
     for i, col in enumerate(FEATURE_COLUMNS):
         row, col_pos = positions[i]
         fig.add_trace(
-            go.Histogram(x=df[col], name=col, marker_color=TEAL_PALETTE[i % len(TEAL_PALETTE)],
+            go.Histogram(x=df[col], name=col, marker_color=SEQUENTIAL_PALETTE[i % len(SEQUENTIAL_PALETTE)],
                         opacity=0.7),
             row=row, col=col_pos
         )
@@ -51,7 +51,7 @@ def render():
         labels=dict(color="Correlation"),
         x=FEATURE_COLUMNS,
         y=FEATURE_COLUMNS,
-        color_continuous_scale='Teal',
+        color_continuous_scale='Blues',
         aspect='auto'
     )
     fig_corr.update_layout(height=500)
@@ -69,7 +69,7 @@ def render():
             values=outcome_counts.values,
             names=outcome_counts.index,
             title="Final Result Distribution",
-            color_discrete_sequence=TEAL_PALETTE
+            color_discrete_sequence=CATEGORICAL_PALETTE
         )
         st.plotly_chart(fig_pie)
     
@@ -80,7 +80,7 @@ def render():
             title="Final Result Counts",
             labels={'x': 'Final Result', 'y': 'Count'},
             color=outcome_counts.index,
-            color_discrete_sequence=TEAL_PALETTE
+            color_discrete_sequence=CATEGORICAL_PALETTE
         )
         st.plotly_chart(fig_bar)
     
@@ -98,7 +98,7 @@ def render():
     fig_scatter = px.scatter(
         df, x=x_axis, y=y_axis, color='final_result',
         title=f"{x_axis} vs {y_axis}",
-        color_discrete_sequence=TEAL_PALETTE,
+        color_discrete_sequence=CATEGORICAL_PALETTE,
         opacity=0.6
     )
     st.plotly_chart(fig_scatter)
@@ -113,6 +113,6 @@ def render():
         df, x='final_result', y=selected_feature,
         title=f"{selected_feature} by Final Result",
         color='final_result',
-        color_discrete_sequence=TEAL_PALETTE
+        color_discrete_sequence=CATEGORICAL_PALETTE
     )
     st.plotly_chart(fig_box)

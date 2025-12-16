@@ -5,6 +5,7 @@ import streamlit as st
 import numpy as np
 from utils.helpers import get_cluster_description
 from utils.clustering import predict_nearest_centroid
+from utils.constants import PRIMARY_COLOR
 
 
 def render():
@@ -76,7 +77,7 @@ def render():
         
         st.markdown(f"""
         <div class="cluster-card">
-            <h3 style="color: #008080;">Student Profile Analysis</h3>
+            <h3 style="color: {PRIMARY_COLOR};">Student Profile Analysis</h3>
             <p><strong>Assigned Cluster:</strong> {cluster}</p>
             <p><strong>Learner Type:</strong> {learner_type}</p>
             <p><strong>Behavior Pattern:</strong> {desc['behavior']}</p>

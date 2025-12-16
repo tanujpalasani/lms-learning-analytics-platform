@@ -12,7 +12,7 @@ except ImportError:
     HDBSCAN = None
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
-from utils.constants import FEATURE_COLUMNS
+from utils.constants import FEATURE_COLUMNS, PRIMARY_COLOR, CATEGORICAL_PALETTE
 from utils.clustering import compute_cluster_centroids, compute_optimal_eps
 from utils.helpers import assign_learner_types
 
@@ -91,13 +91,13 @@ def render():
                         y=k_distances,
                         mode='lines',
                         name='k-distances',
-                        line=dict(color='#008080')
+                        line=dict(color=PRIMARY_COLOR)
                     ))
                     
                     elbow_idx = np.searchsorted(k_distances, auto_eps_value)
                     fig_kdist.add_hline(y=auto_eps_value, line_dash="dash", 
                                         annotation_text=f"Optimal eps = {auto_eps_value:.3f}",
-                                        line_color="red")
+                                        line_color=CATEGORICAL_PALETTE[6])
                     
                     fig_kdist.update_layout(
                         title="k-Nearest Neighbor Distance Plot",

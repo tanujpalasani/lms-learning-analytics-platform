@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import plotly.graph_objects as go
 from utils.dataset_utils import load_clean_dataset, get_raw_table_info, generate_preprocessing_report_pdf
+from utils.constants import BACKGROUND_COLOR
 from config.styles import apply_custom_css
 
 def render():
@@ -47,7 +48,7 @@ def render():
             
         with col2:
             st.markdown("""
-            <div style="background-color: #f0f2f6; padding: 15px; border-radius: 5px;">
+            <div style="background-color: {BACKGROUND_COLOR}; padding: 15px; border-radius: 5px;">
             <h4>Key Stats (Raw)</h4>
             <ul>
                 <li><b>32,593</b> Students</li>

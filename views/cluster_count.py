@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from utils.constants import FEATURE_COLUMNS
+from utils.constants import FEATURE_COLUMNS, PRIMARY_COLOR, SECONDARY_COLOR, CATEGORICAL_PALETTE
 from utils.clustering import compute_gap_statistic
 
 
@@ -148,7 +148,7 @@ def render():
             fig_elbow.add_trace(go.Scatter(
                 x=k_range, y=results["inertias"],
                 mode='lines+markers', name='Inertia',
-                line=dict(color='#008080', width=3), marker=dict(size=10)
+                line=dict(color=PRIMARY_COLOR, width=3), marker=dict(size=10)
             ))
             fig_elbow.update_layout(title="Elbow Method (Inertia)", xaxis_title="K", yaxis_title="Inertia", height=350)
             st.plotly_chart(fig_elbow, use_container_width=True)
@@ -158,7 +158,7 @@ def render():
             fig_sil.add_trace(go.Scatter(
                 x=k_range, y=results["silhouettes"],
                 mode='lines+markers', name='Silhouette',
-                line=dict(color='#20B2AA', width=3), marker=dict(size=10)
+                line=dict(color=SECONDARY_COLOR, width=3), marker=dict(size=10)
             ))
             fig_sil.update_layout(title="Silhouette Score", xaxis_title="K", yaxis_title="Score", height=350)
             st.plotly_chart(fig_sil, use_container_width=True)
@@ -169,7 +169,7 @@ def render():
                 fig_gap.add_trace(go.Scatter(
                     x=k_range, y=results["gaps"],
                     mode='lines+markers', name='Gap',
-                    line=dict(color='#FF6B6B', width=3), marker=dict(size=10),
+                    line=dict(color=CATEGORICAL_PALETTE[6], width=3), marker=dict(size=10),
                     error_y=dict(type='data', array=results["gap_errors"], visible=True)
                 ))
                 fig_gap.update_layout(title="Gap Statistic", xaxis_title="K", yaxis_title="Gap", height=350)

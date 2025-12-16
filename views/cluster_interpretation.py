@@ -4,7 +4,7 @@ Cluster interpretation page with visualizations and learner profiles.
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from utils.constants import FEATURE_COLUMNS, CLUSTER_COLORS, TEAL_PALETTE
+from utils.constants import FEATURE_COLUMNS, PRIMARY_COLOR, CATEGORICAL_PALETTE
 from utils.helpers import get_cluster_description
 
 
@@ -47,7 +47,7 @@ def render():
         crosstab,
         barmode='group',
         title="Final Result Distribution by Cluster",
-        color_discrete_sequence=TEAL_PALETTE
+        color_discrete_sequence=CATEGORICAL_PALETTE
     )
     fig_crosstab.update_layout(xaxis_title="Cluster", yaxis_title="Count")
     st.plotly_chart(fig_crosstab)
@@ -74,7 +74,7 @@ def render():
             
             st.markdown(f"""
             <div class="cluster-card">
-                <h3 style="color: #008080;">Cluster {cluster}</h3>
+                <h3 style="color: {PRIMARY_COLOR};">Cluster {cluster}</h3>
                 <h4>{learner_type}</h4>
                 <p><strong>Size:</strong> {cluster_size} students</p>
                 <p><strong>Behavior:</strong> {desc['behavior']}</p>
@@ -121,13 +121,13 @@ def render():
             fig_2d = px.scatter(
                 pca_df, x='PC1', y='PC2', color='Cluster',
                 title="2D PCA - Colored by Cluster",
-                color_discrete_sequence=CLUSTER_COLORS
+                color_discrete_sequence=CATEGORICAL_PALETTE
             )
         else:
             fig_2d = px.scatter(
                 pca_df, x='PC1', y='PC2', color='Final Result',
                 title="2D PCA - Colored by Final Result",
-                color_discrete_sequence=TEAL_PALETTE
+                color_discrete_sequence=CATEGORICAL_PALETTE
             )
         
         fig_2d.update_layout(height=500)
@@ -150,13 +150,13 @@ def render():
             fig_3d = px.scatter_3d(
                 pca_3d_df, x='PC1', y='PC2', z='PC3', color='Cluster',
                 title="3D PCA - Colored by Cluster",
-                color_discrete_sequence=CLUSTER_COLORS
+                color_discrete_sequence=CATEGORICAL_PALETTE
             )
         else:
             fig_3d = px.scatter_3d(
                 pca_3d_df, x='PC1', y='PC2', z='PC3', color='Final Result',
                 title="3D PCA - Colored by Final Result",
-                color_discrete_sequence=TEAL_PALETTE
+                color_discrete_sequence=CATEGORICAL_PALETTE
             )
         
         fig_3d.update_layout(height=500)
@@ -173,7 +173,7 @@ def render():
         parallel_df,
         dimensions=FEATURE_COLUMNS,
         color=clustered_df['Cluster'],
-        color_continuous_scale='Teal',
+        color_continuous_scale='Blues',
         title="Feature Comparison Across Clusters"
     )
     fig_parallel.update_layout(height=500)
@@ -192,6 +192,6 @@ def render():
         color='Cluster',
         box=True,
         title=f"{selected_feature} Distribution by Cluster",
-        color_discrete_sequence=CLUSTER_COLORS
+        color_discrete_sequence=CATEGORICAL_PALETTE
     )
     st.plotly_chart(fig_violin)

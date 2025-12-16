@@ -7,7 +7,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utils.constants import FEATURE_COLUMNS, CLUSTER_COLORS
+from utils.constants import FEATURE_COLUMNS, CATEGORICAL_PALETTE, PRIMARY_COLOR, SECONDARY_COLOR
 
 
 def render():
@@ -86,7 +86,7 @@ def render():
                 color='Cluster',
                 nbins=30,
                 title="Engagement Score Distribution by Cluster",
-                color_discrete_sequence=CLUSTER_COLORS
+                color_discrete_sequence=CATEGORICAL_PALETTE
             )
             st.plotly_chart(fig_intensity)
             
@@ -134,13 +134,13 @@ def render():
         
         fig_timeline.add_trace(
             go.Scatter(x=reg_by_date['Registration Day'], y=reg_by_date['Student Count'],
-                      mode='lines+markers', name='Registrations', line=dict(color='#008080')),
+                      mode='lines+markers', name='Registrations', line=dict(color=PRIMARY_COLOR)),
             row=1, col=1
         )
         
         fig_timeline.add_trace(
             go.Scatter(x=reg_by_date['Registration Day'], y=reg_by_date['Avg Clicks'],
-                      mode='lines+markers', name='Avg Clicks', line=dict(color='#20B2AA')),
+                      mode='lines+markers', name='Avg Clicks', line=dict(color=SECONDARY_COLOR)),
             row=2, col=1
         )
         
@@ -160,6 +160,6 @@ def render():
             timing_comparison.T,
             barmode='group',
             title="Feature Comparison: Early vs Late Registrants",
-            color_discrete_sequence=['#008080', '#FF6B6B']
+            color_discrete_sequence=[PRIMARY_COLOR, CATEGORICAL_PALETTE[6]]
         )
         st.plotly_chart(fig_timing)
